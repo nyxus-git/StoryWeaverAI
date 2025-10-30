@@ -1,25 +1,37 @@
-# core/config.py
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
-
+from pydantic import field_validator
+import os
+from dotenv import load_dotenv
 
 class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     DEBUG: bool = False
-    DATABASE_URL: str
+
+    DATABASE_URL: str = None
+
+    ALLOWED_ORIGINS: str = ""
+
     GEMINI_API_KEY: str
-    ALLOWED_ORIGINS: str = Field(default="http://localhost:3000,http://localhost:5173")
 
-    @property
-    def allowed_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+    def __init__(self, **values):
+        super().__init__(**values)
+        if not self.DEBUG:
+            db_user = os.getenv("DB_USER")
+            db_password = os.getenv("DB_PASSWORD")
+            db_host = os.getenv("DB_HOST")
+            db_port = os.getenv("DB_PORT")
+            db_name = os.getenv("DB_NAME")
+            self.DATABASE_URL = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    @field_validator("ALLOWED_ORIGINS")
+    def parse_allowed_origins(cls, v: str) -> List[str]:
+        return v.split(",") if v else []
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
 
 
 settings = Settings()
