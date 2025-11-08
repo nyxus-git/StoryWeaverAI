@@ -5,12 +5,7 @@ from core.config import settings
 from routers import story, job
 from db.database import create_tables, engine
 
-
 from models import story, job as model_job 
-@app.on_event("startup")
-def on_startup():
-    create_tables()
-
 
 app = FastAPI(
     title="Choose Your Own Adventure Game API",
@@ -20,6 +15,12 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+@app.on_event("startup")
+def on_startup():
+    create_tables()
+
+
+# Rest of your app setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
