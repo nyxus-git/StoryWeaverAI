@@ -1,9 +1,9 @@
-import {useState, useEffect} from "react"
-import {useNavigate} from "react-router-dom";
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import ThemeInput from "./ThemeInput.jsx";
 import LoadingStatus from "./LodingStatus.jsx";
-import {API_BASE_URL} from "../util.js";
+import { API_BASE_URL } from "../util.js";
 
 
 function StoryGenerator() {
@@ -17,7 +17,12 @@ function StoryGenerator() {
     useEffect(() => {
         let pollInterval;
 
-        if (jobId && jobStatus === "processing") {
+        // FIX: Check for "in_progress" (matches backend) instead of "processing"
+        if (jobId && (jobStatus === "pending" || jobStatus === "in_progress")) {
+            
+            // Poll immediately once, then start interval
+            pollJobStatus(jobId); 
+
             pollInterval = setInterval(() => {
                 pollJobStatus(jobId)
             }, 5000)
@@ -28,7 +33,7 @@ function StoryGenerator() {
                 clearInterval(pollInterval)
             }
         }
-    }, [jobId, jobStatus])
+    }, [jobId, jobStatus]) // Dependencies are correct
 
     const generateStory = async (theme) => {
         setLoading(true)
@@ -36,12 +41,11 @@ function StoryGenerator() {
         setTheme(theme)
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/stories/create`, {theme})
-            const {job_id, status} = response.data
+            const response = await axios.post(`${API_BASE_URL}/api/stories/create`, { theme })
+            const { job_id, status } = response.data
             setJobId(job_id)
-            setJobStatus(status)
+            setJobStatus(status) // This will set status to "pending" and trigger the useEffect
 
-            pollJobStatus(job_id)
         } catch (e) {
             setLoading(false)
             setError(`Failed to generate story: ${e.message}`)
@@ -50,9 +54,10 @@ function StoryGenerator() {
 
     const pollJobStatus = async (id) => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/jobs/${id}`)
-            const {status, story_id, error: jobError} = response.data
-            setJobStatus(status)
+            const response = await axios.get(`${API_BASE_URL}/api/jobs/${id}`)
+
+            const { status, story_id, error: jobError } = response.data
+            setJobStatus(status) // Updates status to "in_progress", then "completed" or "failed"
 
             if (status === "completed" && story_id) {
                 fetchStory(story_id)
@@ -93,7 +98,7 @@ function StoryGenerator() {
             <button onClick={reset}>Try Again</button>
         </div>}
 
-        {!jobId && !error && !loading && <ThemeInput onSubmit={generateStory}/>}
+        {!jobId && !error && !loading && <ThemeInput onSubmit={generateStory} />}
 
         {loading && <LoadingStatus theme={theme} />}
     </div>

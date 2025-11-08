@@ -14,6 +14,7 @@ from schemas.story import (
 )
 from schemas.job import StoryJobsResponse
 from core.story_generator import StoryGenerator
+
 router = APIRouter(
     prefix="/stories",
     tags=["stories"]
@@ -33,10 +34,12 @@ def create_story(
     session_id: str = Depends(get_session_id),
     db: Session = Depends(get_db)
 ):
+    # --- PRINT 1 ---
+    print(f"\n[DEBUG] 1. create_story endpoint HIT for theme: {request.theme}")
+
     response.set_cookie(key="session_id", value=session_id, httponly=True)
 
     job_id = str(uuid.uuid4())
-
     job = StoryJob(
         job_id=job_id,
         session_id=session_id,
@@ -47,6 +50,9 @@ def create_story(
     db.add(job)
     db.commit()
 
+    # --- PRINT 2 ---
+    print(f"[DEBUG] 2. Job created with ID: {job_id}. Adding background task.")
+
     background_tasks.add_task(
         generate_story_task,
         job_id=job_id,
@@ -54,28 +60,52 @@ def create_story(
         session_id=session_id
     )
 
+    # --- PRINT 3 ---
+    print(f"[DEBUG] 3. Returning job ID to frontend.\n")
+
     return job
 
 
 def generate_story_task(job_id: str, theme: str, session_id: str):
+    # --- PRINT 4 ---
+    print(f"\n[DEBUG] 4. Background task STARTED for Job ID: {job_id}")
+
     db = SessionLocal()
     try:
         job = db.query(StoryJob).filter(StoryJob.job_id == job_id).first()
 
         if not job:
+            # --- PRINT 5 ---
+            print(f"[DEBUG] 5. ERROR: Job {job_id} not found in database.")
             return
         try:
             job.status = "in_progress"
             db.commit()
+            
+            # --- PRINT 6 ---
+            print(f"[DEBUG] 6. Job {job_id} status set to 'in_progress'.")
+            
+            # --- PRINT 7 ---
+            print(f"[DEBUG] 7. Calling StoryGenerator... (This is the long step)")
+            
+            story = StoryGenerator.generate_story(db, session_id, theme)
 
-            story = StoryGenerator.generate_story(db, session_id,theme)
+            # --- PRINT 8 ---
+            print(f"[DEBUG] 8. StoryGenerator FINISHED. Story ID: {story.id}")
 
             job.story_id = story.id
             job.status = "completed"
             job.completed_at = datetime.now()
             db.commit()
+            
+            # --- PRINT 9 ---
+            print(f"[DEBUG] 9. Job {job_id} status set to 'completed'.\n")
 
         except Exception as e:
+            # --- PRINT 10 (CRITICAL) ---
+            print(f"\n[DEBUG] 10. !!!---CRITICAL ERROR---!!!")
+            print(f"[DEBUG] Job {job_id} FAILED. Error: {str(e)}\n")
+            
             job.status = "failed"
             job.completed_at = datetime.now()
             job.error = str(e)
@@ -84,7 +114,7 @@ def generate_story_task(job_id: str, theme: str, session_id: str):
     finally:
         db.close()
 
-
+# ... (rest of your file is unchanged) ...
 @router.get("/{story_id}/complete", response_model=CompleteStoryResponse)
 def get_complete_story(story_id: int, db: Session = Depends(get_db)):
     story = db.query(Story).filter(Story.id == story_id).first()

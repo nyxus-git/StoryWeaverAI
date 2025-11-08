@@ -51,8 +51,11 @@ class StoryGenerator:
     def _process_story_node(cls, db: Session, story_id: int, node_data: StoryNodeLLM, is_root: bool = False) -> StoryNode:
         
         content = node_data.content
-        is_ending = node_data.is_ending       
-        is_winning = node_data.is_winning_ending 
+        
+        # FIX: Provide default values if LLM omits them
+        is_ending = node_data.is_ending if node_data.is_ending is not None else False
+        is_winning = node_data.is_winning_ending if node_data.is_winning_ending is not None else False
+        
         options = node_data.options or []
 
         node = StoryNode(
@@ -72,6 +75,9 @@ class StoryGenerator:
                 text = option_data.text
                 next_node = option_data.next_node 
                 
+                # FIX: Skip this option if next_node is missing
+                if not next_node:
+                    continue
                 
                 child_node = cls._process_story_node(db, story_id, next_node, is_root=False)
 
