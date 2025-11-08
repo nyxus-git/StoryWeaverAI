@@ -2,10 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from routers import story, job
-from db.database import create_tables, engine
+from db.database import create_tables
 
-from models import story, job as model_job 
+from routers import story as story_router
+from routers import job as job_router
+
+from models import story as story_model
+from models import job as job_model
 
 app = FastAPI(
     title="Choose Your Own Adventure Game API",
@@ -20,7 +23,6 @@ def on_startup():
     create_tables()
 
 
-# Rest of your app setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -29,5 +31,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(story.router, prefix=settings.API_PREFIX)
-app.include_router(job.router, prefix=settings.API_PREFIX)
+app.include_router(story_router.router, prefix=settings.API_PREFIX)
+app.include_router(job_router.router, prefix=settings.API_PREFIX)
